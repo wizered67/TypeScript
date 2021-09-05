@@ -406,27 +406,31 @@ namespace ts {
     }
 
     function getHelpHeader(sys: System) {
-        const colors = createColors(sys);
-        const header: string[] = [];
         const tscExplanation = `${getDiagnosticText(Diagnostics.tsc_Colon_The_TypeScript_Compiler)} - ${getDiagnosticText(Diagnostics.Version_0, version)}`;
+        return addTsIconIfSpace(sys, tscExplanation);
+    }
+
+    function addTsIconIfSpace(sys: System, text: string) {
+        const colors = createColors(sys);
+        const lines: string[] = [];
         const terminalWidth = sys.getWidthOfTerminal?.() ?? 0;;
         const tsIconLength = 5;
 
         const tsIconFirstLine = colors.blueBackground(padLeft("", tsIconLength));
         const tsIconSecondLine = colors.blueBackground(colors.brightWhite(padLeft("TS ", tsIconLength)));
         // If we have enough space, print TS icon.
-        if (terminalWidth >= tscExplanation.length + tsIconLength) {
+        if (terminalWidth >= text.length + tsIconLength) {
             // right align of the icon is 120 at most.
             const rightAlign = terminalWidth > 120 ? 120 : terminalWidth;
             const leftAlign = rightAlign - tsIconLength;
-            header.push(padRight(tscExplanation, leftAlign) + tsIconFirstLine + sys.newLine);
-            header.push(padLeft("", leftAlign) + tsIconSecondLine + sys.newLine);
+            lines.push(padRight(text, leftAlign) + tsIconFirstLine + sys.newLine);
+            lines.push(padLeft("", leftAlign) + tsIconSecondLine + sys.newLine);
         }
         else {
-            header.push(tscExplanation + sys.newLine);
-            header.push(sys.newLine);
+            lines.push(text + sys.newLine);
+            lines.push(sys.newLine);
         }
-        return header;
+        return lines;
     }
 
     function printHelp(sys: System, commandLine: ParsedCommandLine) {
@@ -1034,10 +1038,43 @@ namespace ts {
             reportDiagnostic(createCompilerDiagnostic(Diagnostics.A_tsconfig_json_file_is_already_defined_at_Colon_0, file));
         }
         else {
-            sys.writeFile(file, generateTSConfig(options, fileNames, sys.newLine));
-            reportDiagnostic(createCompilerDiagnostic(Diagnostics.Successfully_created_a_tsconfig_json_file));
+            const tsConfig = generateTSConfig(options, fileNames, sys.newLine);
+            sys.writeFile(file, tsConfig);
+
+            // TODO: Make this support localization.
+            const output = addTsIconIfSpace(sys, "Created a new tsconfig with:");
+            for (const line of output) {
+                sys.write(line);
+            }
+
+            const optionsWithDefaults = extend(options, defaultInitCompilerOptions);
+            const compilerOptionsMap = serializeCompilerOptions(optionsWithDefaults);
+            const { optionsNameMap } = getOptionsNameMap();
+
+            compilerOptionsMap.forEach((optionValue, optionName) => {
+               const optionDefinition = optionsNameMap.get(optionName.toLowerCase());
+               if (!optionDefinition) {
+                   return;
+               }
+               if (!optionDefinition.showInSimplifiedHelpView) {
+                   return;
+               }
+               if (isDefaultValue(optionDefinition, optionValue)) {
+                   return;
+               }
+               sys.write(`  ${optionName}: ${optionValue}${sys.newLine}`);
+            });
+            sys.write(sys.newLine);
+            sys.write(sys.newLine);
+            // TODO: Make this support localization.
+            sys.write("You can learn more at https://aka.ms/tsconfig.json");
         }
 
         return;
+    }
+
+    // TODO: write this.
+    function isDefaultValue(_optionDefintion: CommandLineOption, _optionValue: CompilerOptionsValue) {
+        return false;
     }
 }

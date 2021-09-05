@@ -2284,7 +2284,9 @@ namespace ts {
         });
     }
 
-    function serializeCompilerOptions(
+    // TODO: write jsdoc
+    /* @internal */
+    export function serializeCompilerOptions(
         options: CompilerOptions,
         pathOptions?: { configFilePath: string, useCaseSensitiveFileNames: boolean }
     ): ESMap<string, CompilerOptionsValue> {
